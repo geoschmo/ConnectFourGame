@@ -1,0 +1,32 @@
+name: Build and Deploy to SmarterASP.NET
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish
+        run: dotnet publish ./ConnectFourGame/ConnectFourGame.csproj -c Release -o publish
+
+      - name: Deploy to SmarterASP virtual app
+        shell: powershell
+        run: |
+          $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+
+          & $msdeploy `
+            -verb:sync `
+            -source:contentPath="${{ github.workspace }}\publish" `
+            -dest:contentPath="${{ vars.MSDEPLOY_SITE }}/${{ vars.MSDEPLOY_APP_PATH }}",computerName="${{ vars.MSDEPLOY_URL }}",userName="${{ vars.MSDEPLOY_USER }}",password="${{ secrets.MSDEPLOY_PASS }}",authType="Basic" `
+            -allowUntrusted `
+            -enableRule:AppOffline

@@ -1,17 +1,24 @@
 # ConnectFourGame
 
-A starter repository for a Connect Four game project.
+ASP.NET Core 8 Razor Pages Connect Four game, intended to run at `https://georgeperley.com/connectfour`.
 
-## Overview
+## Local run
 
-This repository is currently scaffolded and ready for implementation. You can use it to build game logic, add a user interface, and include tests for gameplay behavior.
+```powershell
+dotnet run --project .\ConnectFourGame\ConnectFourGame.csproj
+```
 
-## Getting Started
+## Deployment
 
-1. Clone the repository.
-2. Create your game implementation files.
-3. Add tests and run them locally.
+GitHub Actions deploys this app to SmarterASP.NET on pushes to `master` using Web Deploy.
 
-## Note
+Repository variables:
 
-This README was created in Codex.
+- `MSDEPLOY_SITE`: SmarterASP site name, such as `geoschmo-001-site2`
+- `MSDEPLOY_URL`: Web Deploy endpoint, such as `https://win8127.site4now.net:8172/msdeploy.axd?site=geoschmo-001-site2`
+- `MSDEPLOY_USER`: SmarterASP publish username
+- `MSDEPLOY_APP_PATH`: virtual app folder, set to `connectfour`
+
+Repository secret:
+
+- `MSDEPLOY_PASS`: SmarterASP publish password

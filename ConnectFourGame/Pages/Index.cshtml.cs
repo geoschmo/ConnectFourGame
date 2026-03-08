@@ -5,6 +5,13 @@ namespace ConnectFourGame.Pages;
 
 public class IndexModel : PageModel
 {
+    private readonly IConfiguration configuration;
+
+    public IndexModel(IConfiguration configuration)
+    {
+        this.configuration = configuration;
+    }
+
     [BindProperty(SupportsGet = true)]
     public string? Difficulty { get; set; }
 
@@ -17,7 +24,9 @@ public class IndexModel : PageModel
 
     public void OnGet()
     {
-        var configuredUrl = Environment.GetEnvironmentVariable("PORTFOLIO_URL");
+        var configuredUrl = configuration["PortfolioUrl"]
+            ?? Environment.GetEnvironmentVariable("PORTFOLIO_URL");
+
         if (!string.IsNullOrWhiteSpace(configuredUrl))
         {
             PortfolioUrl = configuredUrl;
