@@ -1,0 +1,92 @@
+@page
+@model ConnectFourGame.Pages.IndexModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Connect Four</title>
+    <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true" />
+</head>
+<body>
+    <a href="@Model.PortfolioUrl" class="back-link">&larr; Back to georgeperley.com</a>
+
+    <main class="app-shell">
+        <section class="hero-panel">
+            <p class="eyebrow">Browser Game</p>
+            <h1>Connect Four</h1>
+            <p class="subtitle">Drop discs, build a line of four, and play against a local friend or the computer.</p>
+
+            <div class="control-grid">
+                <label class="field">
+                    <span>Mode</span>
+                    <select id="mode-select">
+                        <option value="cpu" selected>Player vs Computer</option>
+                        <option value="local">Local 2 Players</option>
+                    </select>
+                </label>
+
+                <label class="field">
+                    <span>Difficulty</span>
+                    <select id="difficulty-select">
+                        <option value="easy">Easy</option>
+                        <option value="normal" selected="@(Model.SelectedDifficulty == "normal")">Normal</option>
+                        <option value="hard" selected="@(Model.SelectedDifficulty == "hard")">Hard</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="button-row">
+                <button id="new-game-btn" class="btn btn-primary">New Game</button>
+                <button id="reset-score-btn" class="btn btn-secondary">Reset Score</button>
+            </div>
+
+            <div class="status-card">
+                <p id="status-text">Red starts. Pick a column.</p>
+                <p id="hint-text">Use the column buttons above the board to place a disc.</p>
+            </div>
+
+            <div class="scoreboard" aria-label="scoreboard">
+                <div class="score-pill red">
+                    <span>Red</span>
+                    <strong id="score-red">0</strong>
+                </div>
+                <div class="score-pill draw">
+                    <span>Draws</span>
+                    <strong id="score-draw">0</strong>
+                </div>
+                <div class="score-pill yellow">
+                    <span>Yellow</span>
+                    <strong id="score-yellow">0</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="board-panel">
+            <div class="board-header">
+                <p class="board-label">Game Board</p>
+                <p id="turn-indicator" class="turn-indicator red">Red to move</p>
+            </div>
+
+            <div id="column-controls" class="column-controls" aria-label="column controls"></div>
+            <div id="board" class="board" role="grid" aria-label="Connect Four board"></div>
+
+            <div class="legend">
+                <span><i class="disc preview red"></i> Red</span>
+                <span><i class="disc preview yellow"></i> Yellow</span>
+                <span><i class="win-marker"></i> Winning discs glow</span>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        window.connectFourConfig = {
+            selectedDifficulty: '@Model.SelectedDifficulty'
+        };
+    </script>
+    <script src="~/js/game.js" asp-append-version="true"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+@page
+@model ErrorModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connect Four Error</title>
+    <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true" />
+</head>
+<body class="error-page">
+    <main class="error-shell">
+        <p class="eyebrow">Connect Four</p>
+        <h1>Something went wrong.</h1>
+        <p>The game page could not be loaded.</p>
+        <a class="btn btn-primary" href="@Url.Page("/Index")">Return to game</a>
+    </main>
+</body>
+</html>
