@@ -140,17 +140,23 @@ h1 {
 }
 
 select,
+.join-row input,
 .btn {
     border-radius: 16px;
     border: 1px solid transparent;
     font: inherit;
 }
 
-select {
+select,
+.join-row input {
     background: rgba(15, 23, 42, 0.9);
     color: var(--text);
     padding: 14px 16px;
     border-color: rgba(148, 163, 184, 0.18);
+}
+
+.join-row input {
+    min-width: 0;
 }
 
 .button-row {
@@ -158,6 +164,10 @@ select {
     gap: 12px;
     margin: 22px 0;
     flex-wrap: wrap;
+}
+
+.hidden {
+    display: none !important;
 }
 
 .btn {
@@ -190,6 +200,50 @@ select {
     padding: 18px;
 }
 
+.remote-card {
+    margin-top: 18px;
+    padding: 18px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 20px;
+}
+
+.remote-title,
+.invite-label {
+    margin: 0 0 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.78rem;
+}
+
+.remote-actions {
+    margin: 0 0 18px;
+}
+
+.join-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: stretch;
+}
+
+.invite-shell {
+    margin-top: 18px;
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(8, 15, 30, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.room-code-display {
+    margin: 0 0 14px;
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+}
+
 #status-text {
     margin: 0 0 8px;
     font-size: 1.05rem;
@@ -199,43 +253,6 @@ select {
 #hint-text {
     margin: 0;
     color: var(--muted);
-}
-
-.scoreboard {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-top: 22px;
-}
-
-.score-pill {
-    border-radius: 20px;
-    padding: 16px 14px;
-    text-align: center;
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid rgba(148, 163, 184, 0.16);
-}
-
-.score-pill span {
-    display: block;
-    color: var(--muted);
-    margin-bottom: 8px;
-}
-
-.score-pill strong {
-    font-size: 1.8rem;
-}
-
-.score-pill.red strong {
-    color: var(--red);
-}
-
-.score-pill.yellow strong {
-    color: var(--yellow);
-}
-
-.score-pill.draw strong {
-    color: var(--white);
 }
 
 .board-header {
@@ -425,13 +442,13 @@ select {
         padding: 20px;
     }
 
-    .scoreboard {
-        grid-template-columns: 1fr;
-    }
-
     .column-controls,
     .board {
         gap: 8px;
+    }
+
+    .join-row {
+        grid-template-columns: 1fr;
     }
 
     .column-btn {

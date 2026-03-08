@@ -15,6 +15,9 @@ public class IndexModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string? Difficulty { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public string? Room { get; set; }
+
     public string PortfolioUrl { get; private set; } = "/";
 
     public string SelectedDifficulty =>

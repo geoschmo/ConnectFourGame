@@ -1,6 +1,11 @@
+using ConnectFourGame.Hubs;
+using ConnectFourGame.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<ConnectFourRoomService>();
 
 var app = builder.Build();
 
@@ -24,5 +29,6 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapRazorPages();
+app.MapHub<GameHub>("/gameHub");
 
 app.Run();

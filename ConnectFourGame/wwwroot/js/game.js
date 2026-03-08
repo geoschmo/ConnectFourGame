@@ -1,6 +1,6 @@
 const ROWS = 6;
 const COLUMNS = 7;
-const SCORE_KEY = "connect-four-score";
+const PLAYER_TOKEN_KEY_PREFIX = "connect-four-player-token:";
 
 const boardElement = document.getElementById("board");
 const columnControlsElement = document.getElementById("column-controls");
@@ -8,19 +8,31 @@ const statusTextElement = document.getElementById("status-text");
 const hintTextElement = document.getElementById("hint-text");
 const turnIndicatorElement = document.getElementById("turn-indicator");
 const modeSelectElement = document.getElementById("mode-select");
+const difficultyFieldElement = document.getElementById("difficulty-field");
 const difficultySelectElement = document.getElementById("difficulty-select");
 const newGameButton = document.getElementById("new-game-btn");
-const resetScoreButton = document.getElementById("reset-score-btn");
-const scoreRedElement = document.getElementById("score-red");
-const scoreDrawElement = document.getElementById("score-draw");
-const scoreYellowElement = document.getElementById("score-yellow");
+const leaveRoomButton = document.getElementById("leave-room-btn");
+const remotePanelElement = document.getElementById("remote-panel");
+const createRoomButton = document.getElementById("create-room-btn");
+const joinRoomButton = document.getElementById("join-room-btn");
+const copyInviteButton = document.getElementById("copy-invite-btn");
+const roomCodeInputElement = document.getElementById("room-code-input");
+const inviteShellElement = document.getElementById("invite-shell");
+const roomCodeDisplayElement = document.getElementById("room-code-display");
 
-let board = [];
+let board = createEmptyBoard();
+let winningCells = [];
 let currentPlayer = "R";
 let gameMode = "cpu";
 let difficulty = window.connectFourConfig?.selectedDifficulty || "normal";
 let gameOver = false;
-let scores = loadScores();
+
+let connection = null;
+let signalRReady = false;
+let remoteRoomCode = "";
+let localPlayerColor = null;
+let remoteState = null;
+let remoteMessage = "";
 
 difficultySelectElement.value = difficulty;
 
@@ -30,6 +42,7 @@ function createEmptyBoard() {
 
 function renderBoard() {
     boardElement.innerHTML = "";
+
     for (let row = 0; row < ROWS; row++) {
         for (let col = 0; col < COLUMNS; col++) {
             const cell = document.createElement("div");
@@ -47,6 +60,10 @@ function renderBoard() {
                 disc.classList.add(value === "R" ? "red" : "yellow");
             }
 
+            if (winningCells.some(([winningRow, winningCol]) => winningRow === row && winningCol === col)) {
+                cell.classList.add("winning");
+            }
+
             cell.appendChild(disc);
             boardElement.appendChild(cell);
         }
@@ -55,53 +72,28 @@ function renderBoard() {
 
 function renderColumnControls() {
     columnControlsElement.innerHTML = "";
+
     for (let col = 0; col < COLUMNS; col++) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "column-btn";
         button.textContent = String(col + 1);
-        button.disabled = isColumnFull(col) || gameOver;
+        button.disabled = isColumnDisabled(col);
         button.addEventListener("click", () => handleMove(col));
         columnControlsElement.appendChild(button);
     }
 }
 
-function updateScoreboard() {
-    scoreRedElement.textContent = String(scores.red);
-    scoreDrawElement.textContent = String(scores.draw);
-    scoreYellowElement.textContent = String(scores.yellow);
-}
-
-function loadScores() {
-    try {
-        const stored = localStorage.getItem(SCORE_KEY);
-        if (!stored) {
-            return { red: 0, yellow: 0, draw: 0 };
-        }
-
-        const parsed = JSON.parse(stored);
-        return {
-            red: Number(parsed.red) || 0,
-            yellow: Number(parsed.yellow) || 0,
-            draw: Number(parsed.draw) || 0
-        };
-    } catch {
-        return { red: 0, yellow: 0, draw: 0 };
+function isColumnDisabled(col) {
+    if (gameOver || isColumnFull(col)) {
+        return true;
     }
-}
 
-function saveScores() {
-    try {
-        localStorage.setItem(SCORE_KEY, JSON.stringify(scores));
-    } catch {
-        // Ignore storage errors.
+    if (gameMode !== "remote") {
+        return false;
     }
-}
 
-function resetScores() {
-    scores = { red: 0, yellow: 0, draw: 0 };
-    saveScores();
-    updateScoreboard();
+    return !canRemotePlayerMove();
 }
 
 function isColumnFull(col) {
@@ -129,6 +121,11 @@ function placeDisc(col, player) {
 }
 
 function handleMove(col) {
+    if (gameMode === "remote") {
+        void remoteMove(col);
+        return;
+    }
+
     if (gameOver || isColumnFull(col)) {
         return;
     }
@@ -138,26 +135,30 @@ function handleMove(col) {
         return;
     }
 
-    finalizeTurn(row, col, currentPlayer);
+    finalizeLocalTurn(row, col, currentPlayer);
 }
 
-function finalizeTurn(row, col, player) {
-    renderBoard();
-
-    const winnerCells = getWinningCells(board, row, col, player);
-    if (winnerCells.length > 0) {
-        markWinningCells(winnerCells);
-        endGame(player);
+function finalizeLocalTurn(row, col, player) {
+    winningCells = getWinningCells(board, row, col, player);
+    if (winningCells.length > 0) {
+        gameOver = true;
+        updateStatus();
+        renderBoard();
+        renderColumnControls();
         return;
     }
 
     if (isBoardFull(board)) {
-        endGame(null);
+        gameOver = true;
+        updateStatus();
+        renderBoard();
+        renderColumnControls();
         return;
     }
 
     currentPlayer = player === "R" ? "Y" : "R";
     updateStatus();
+    renderBoard();
     renderColumnControls();
 
     if (gameMode === "cpu" && currentPlayer === "Y" && !gameOver) {
@@ -168,65 +169,114 @@ function finalizeTurn(row, col, player) {
 
 function updateStatus() {
     const isRedTurn = currentPlayer === "R";
-    turnIndicatorElement.textContent = `${isRedTurn ? "Red" : "Yellow"} to move`;
-    turnIndicatorElement.className = `turn-indicator ${isRedTurn ? "red" : "yellow"}`;
+    turnIndicatorElement.textContent = gameOver ? "Game over" : `${isRedTurn ? "Red" : "Yellow"} to move`;
+    turnIndicatorElement.className = `turn-indicator ${gameOver ? "" : (isRedTurn ? "red" : "yellow")}`.trim();
 
     if (gameMode === "local") {
-        statusTextElement.textContent = `${isRedTurn ? "Red" : "Yellow"} player's turn.`;
-        hintTextElement.textContent = "Take turns dropping a disc into any open column.";
+        updateLocalStatus();
         return;
     }
 
-    if (isRedTurn) {
+    if (gameMode === "cpu") {
+        updateCpuStatus();
+        return;
+    }
+
+    updateRemoteStatus();
+}
+
+function updateLocalStatus() {
+    if (gameOver) {
+        if (winningCells.length > 0) {
+            statusTextElement.textContent = currentPlayer === "R" ? "Red wins." : "Yellow wins.";
+            hintTextElement.textContent = "Start another round to keep the match going.";
+            return;
+        }
+
+        statusTextElement.textContent = "Draw game.";
+        hintTextElement.textContent = "The board filled before either side could connect four.";
+        return;
+    }
+
+    statusTextElement.textContent = currentPlayer === "R" ? "Red player's turn." : "Yellow player's turn.";
+    hintTextElement.textContent = "Take turns dropping a disc into any open column.";
+}
+
+function updateCpuStatus() {
+    if (gameOver) {
+        if (winningCells.length > 0) {
+            statusTextElement.textContent = currentPlayer === "R" ? "You win." : "Computer wins.";
+            hintTextElement.textContent = currentPlayer === "R"
+                ? "Start another round to keep the match going."
+                : "Look for earlier blocks on the next round.";
+            return;
+        }
+
+        statusTextElement.textContent = "Draw game.";
+        hintTextElement.textContent = "The board filled before either side could connect four.";
+        return;
+    }
+
+    if (currentPlayer === "R") {
         statusTextElement.textContent = "Your turn. Pick a column.";
         hintTextElement.textContent = "Try to build threats in multiple directions at once.";
     } else {
         statusTextElement.textContent = "Computer thinking...";
+        hintTextElement.textContent = cpuHintText();
     }
 }
 
-function endGame(winner) {
-    gameOver = true;
-    renderColumnControls();
-
-    if (winner === "R") {
-        scores.red += 1;
-        saveScores();
-        updateScoreboard();
-        statusTextElement.textContent = gameMode === "cpu" ? "You win." : "Red wins.";
-        hintTextElement.textContent = "Start another round to keep the match going.";
-        turnIndicatorElement.textContent = "Game over";
-        turnIndicatorElement.className = "turn-indicator red";
+function updateRemoteStatus() {
+    if (!signalRReady) {
+        statusTextElement.textContent = "Connecting to multiplayer service...";
+        hintTextElement.textContent = "Create a room or open an invite link once the connection is ready.";
         return;
     }
 
-    if (winner === "Y") {
-        scores.yellow += 1;
-        saveScores();
-        updateScoreboard();
-        statusTextElement.textContent = gameMode === "cpu" ? "Computer wins." : "Yellow wins.";
-        hintTextElement.textContent = "Look for earlier blocks on the next round.";
-        turnIndicatorElement.textContent = "Game over";
-        turnIndicatorElement.className = "turn-indicator yellow";
+    if (!remoteRoomCode) {
+        statusTextElement.textContent = "Create a room or join a room code.";
+        hintTextElement.textContent = "Invite links use the same `?room=` flow as Battleship.";
         return;
     }
 
-    scores.draw += 1;
-    saveScores();
-    updateScoreboard();
-    statusTextElement.textContent = "Draw game.";
-    hintTextElement.textContent = "The board filled before either side could connect four.";
-    turnIndicatorElement.textContent = "Game over";
-    turnIndicatorElement.className = "turn-indicator";
-}
+    if (remoteMessage) {
+        hintTextElement.textContent = remoteMessage;
+    }
 
-function markWinningCells(cells) {
-    for (const [row, col] of cells) {
-        const index = row * COLUMNS + col;
-        const cell = boardElement.children[index];
-        if (cell) {
-            cell.classList.add("winning");
+    const colorName = localPlayerColor === "R" ? "Red" : localPlayerColor === "Y" ? "Yellow" : "Spectator";
+    const roomState = remoteState;
+
+    if (!roomState?.hasTwoPlayers) {
+        statusTextElement.textContent = "Waiting for opponent to join...";
+        hintTextElement.textContent = `Room ${remoteRoomCode}. You are ${colorName}. Share the invite link.`;
+        return;
+    }
+
+    if (gameOver) {
+        if (roomState?.winner === "R" || roomState?.winner === "Y") {
+            const winnerName = roomState.winner === "R" ? "Red" : "Yellow";
+            statusTextElement.textContent = roomState.winner === localPlayerColor ? "You win." : `${winnerName} wins.`;
+            hintTextElement.textContent = "Use New Game to reset this room for another round.";
+            return;
         }
+
+        statusTextElement.textContent = "Draw game.";
+        hintTextElement.textContent = "Use New Game to reset this room for another round.";
+        return;
+    }
+
+    if (!localPlayerColor) {
+        statusTextElement.textContent = `${currentPlayer === "R" ? "Red" : "Yellow"} to move.`;
+        hintTextElement.textContent = `Room ${remoteRoomCode}.`;
+        return;
+    }
+
+    if (currentPlayer === localPlayerColor) {
+        statusTextElement.textContent = "Your turn. Pick a column.";
+        hintTextElement.textContent = `Room ${remoteRoomCode}. You are ${colorName}.`;
+    } else {
+        statusTextElement.textContent = "Opponent's turn.";
+        hintTextElement.textContent = `Room ${remoteRoomCode}. You are ${colorName}.`;
     }
 }
 
@@ -311,7 +361,7 @@ function cpuMove() {
         return;
     }
 
-    finalizeTurn(row, col, "Y");
+    finalizeLocalTurn(row, col, "Y");
 }
 
 function chooseCpuColumn() {
@@ -419,21 +469,318 @@ function cpuHintText() {
     return "Normal mode blocks direct threats and prefers strong columns.";
 }
 
-function startNewGame() {
+function startLocalGame() {
     board = createEmptyBoard();
+    winningCells = [];
     currentPlayer = "R";
     gameOver = false;
-    gameMode = modeSelectElement.value;
     difficulty = difficultySelectElement.value;
+    remoteMessage = "";
     renderBoard();
     renderColumnControls();
     updateStatus();
 }
 
-newGameButton.addEventListener("click", startNewGame);
-resetScoreButton.addEventListener("click", resetScores);
-modeSelectElement.addEventListener("change", startNewGame);
-difficultySelectElement.addEventListener("change", startNewGame);
+function updateModeUI() {
+    const isRemote = gameMode === "remote";
+    const isCpu = gameMode === "cpu";
 
-updateScoreboard();
-startNewGame();
+    remotePanelElement.classList.toggle("hidden", !isRemote);
+    difficultyFieldElement.classList.toggle("hidden", !isCpu);
+    leaveRoomButton.classList.toggle("hidden", !isRemote || !remoteRoomCode);
+    inviteShellElement.classList.toggle("hidden", !remoteRoomCode);
+}
+
+async function ensureSignalRConnection() {
+    if (connection && signalRReady) {
+        return;
+    }
+
+    if (!window.signalR) {
+        remoteMessage = "SignalR failed to load.";
+        updateStatus();
+        return;
+    }
+
+    if (!connection) {
+        connection = new signalR.HubConnectionBuilder()
+            .withUrl(window.connectFourConfig.gameHubUrl)
+            .withAutomaticReconnect()
+            .build();
+
+        connection.on("GameStateUpdated", (state) => {
+            applyRemoteState(state);
+        });
+
+        connection.onreconnecting(() => {
+            signalRReady = false;
+            remoteMessage = "Connection lost. Reconnecting...";
+            renderColumnControls();
+            updateStatus();
+        });
+
+        connection.onreconnected(async () => {
+            signalRReady = true;
+            remoteMessage = "Reconnected.";
+            if (remoteRoomCode) {
+                await joinRoom(remoteRoomCode, true);
+            }
+            updateStatus();
+        });
+
+        connection.onclose(() => {
+            signalRReady = false;
+            renderColumnControls();
+            updateStatus();
+        });
+    }
+
+    if (connection.state === "Connected") {
+        signalRReady = true;
+        return;
+    }
+
+    await connection.start();
+    signalRReady = true;
+}
+
+async function disconnectRemoteConnection() {
+    if (!connection || connection.state === "Disconnected") {
+        signalRReady = false;
+        return;
+    }
+
+    await connection.stop();
+    signalRReady = false;
+}
+
+function applyRemoteState(state) {
+    remoteState = state;
+    board = state.board ?? createEmptyBoard();
+    currentPlayer = state.currentPlayer ?? "R";
+    gameOver = Boolean(state.gameOver);
+    winningCells = Array.isArray(state.winningCells) ? state.winningCells : [];
+    remoteRoomCode = state.roomCode ?? remoteRoomCode;
+    roomCodeDisplayElement.textContent = remoteRoomCode || "------";
+    updateModeUI();
+    renderBoard();
+    renderColumnControls();
+    updateStatus();
+}
+
+function canRemotePlayerMove() {
+    return Boolean(
+        signalRReady
+        && remoteRoomCode
+        && remoteState?.hasTwoPlayers
+        && !gameOver
+        && localPlayerColor
+        && currentPlayer === localPlayerColor
+    );
+}
+
+function getStoredToken(roomCode) {
+    return window.localStorage.getItem(`${PLAYER_TOKEN_KEY_PREFIX}${roomCode}`);
+}
+
+function setStoredToken(roomCode, token) {
+    window.localStorage.setItem(`${PLAYER_TOKEN_KEY_PREFIX}${roomCode}`, token);
+}
+
+async function createRoom() {
+    gameMode = "remote";
+    modeSelectElement.value = "remote";
+    updateModeUI();
+    await ensureSignalRConnection();
+    if (!signalRReady) {
+        return;
+    }
+
+    const result = await connection.invoke("CreateRoom");
+    if (!result.success) {
+        remoteMessage = result.message || "Unable to create room.";
+        updateStatus();
+        return;
+    }
+
+    remoteRoomCode = result.roomCode;
+    localPlayerColor = result.playerColor;
+    setStoredToken(result.roomCode, result.playerToken);
+    history.replaceState(null, "", `${window.location.pathname}?room=${result.roomCode}`);
+    remoteMessage = "";
+    roomCodeInputElement.value = result.roomCode;
+    applyRemoteState(result.state);
+}
+
+async function joinRoom(roomCode, isReconnect = false) {
+    const normalizedRoomCode = roomCode.trim().toUpperCase();
+    if (!normalizedRoomCode || normalizedRoomCode.length !== 6) {
+        remoteMessage = "Please enter a valid 6-character room code.";
+        updateStatus();
+        return;
+    }
+
+    gameMode = "remote";
+    modeSelectElement.value = "remote";
+    updateModeUI();
+    await ensureSignalRConnection();
+    if (!signalRReady) {
+        return;
+    }
+
+    const playerToken = getStoredToken(normalizedRoomCode);
+    const result = await connection.invoke("JoinRoom", normalizedRoomCode, playerToken);
+
+    if (!result.success) {
+        if (!isReconnect) {
+            remoteMessage = result.message || "Unable to join room.";
+            updateStatus();
+        }
+        return;
+    }
+
+    remoteRoomCode = result.roomCode;
+    localPlayerColor = result.playerColor;
+    setStoredToken(result.roomCode, result.playerToken);
+    history.replaceState(null, "", `${window.location.pathname}?room=${result.roomCode}`);
+    roomCodeInputElement.value = result.roomCode;
+    remoteMessage = "";
+    applyRemoteState(result.state);
+}
+
+async function remoteMove(column) {
+    if (!canRemotePlayerMove()) {
+        return;
+    }
+
+    const result = await connection.invoke("DropDisc", column);
+    if (!result.success) {
+        remoteMessage = result.message || "Move rejected.";
+        updateStatus();
+    }
+}
+
+async function restartRemoteGame() {
+    if (!remoteRoomCode) {
+        return;
+    }
+
+    await ensureSignalRConnection();
+    if (!signalRReady) {
+        return;
+    }
+
+    const result = await connection.invoke("RestartGame");
+    if (!result.success) {
+        remoteMessage = result.message || "Unable to restart the room.";
+        updateStatus();
+    }
+}
+
+async function leaveRemoteRoom() {
+    await disconnectRemoteConnection();
+    remoteRoomCode = "";
+    localPlayerColor = null;
+    remoteState = null;
+    remoteMessage = "";
+    board = createEmptyBoard();
+    winningCells = [];
+    currentPlayer = "R";
+    gameOver = false;
+    history.replaceState(null, "", window.location.pathname);
+    updateModeUI();
+    renderBoard();
+    renderColumnControls();
+    updateStatus();
+}
+
+function buildInviteUrl(roomCode) {
+    return `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+}
+
+async function copyInviteLink() {
+    if (!remoteRoomCode) {
+        return;
+    }
+
+    const inviteUrl = buildInviteUrl(remoteRoomCode);
+
+    try {
+        await navigator.clipboard.writeText(inviteUrl);
+        remoteMessage = "Invite link copied.";
+    } catch {
+        remoteMessage = `Copy failed. Share this link: ${inviteUrl}`;
+    }
+
+    updateStatus();
+}
+
+async function handleModeChange() {
+    gameMode = modeSelectElement.value;
+    updateModeUI();
+
+    if (gameMode === "remote") {
+        await ensureSignalRConnection();
+        if (window.connectFourConfig?.inviteRoomCode && !remoteRoomCode) {
+            roomCodeInputElement.value = window.connectFourConfig.inviteRoomCode.toUpperCase();
+            await joinRoom(window.connectFourConfig.inviteRoomCode);
+        } else {
+            updateStatus();
+            renderColumnControls();
+        }
+        return;
+    }
+
+    await leaveRemoteRoom();
+    startLocalGame();
+}
+
+async function handleNewGame() {
+    if (gameMode === "remote") {
+        await restartRemoteGame();
+        return;
+    }
+
+    startLocalGame();
+}
+
+newGameButton.addEventListener("click", () => {
+    void handleNewGame();
+});
+leaveRoomButton.addEventListener("click", () => {
+    void leaveRemoteRoom();
+});
+modeSelectElement.addEventListener("change", () => {
+    void handleModeChange();
+});
+difficultySelectElement.addEventListener("change", () => {
+    if (gameMode === "cpu") {
+        startLocalGame();
+    }
+});
+createRoomButton.addEventListener("click", () => {
+    void createRoom();
+});
+joinRoomButton.addEventListener("click", () => {
+    void joinRoom(roomCodeInputElement.value);
+});
+copyInviteButton.addEventListener("click", () => {
+    void copyInviteLink();
+});
+roomCodeInputElement.addEventListener("input", () => {
+    roomCodeInputElement.value = roomCodeInputElement.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+});
+
+renderBoard();
+renderColumnControls();
+
+if (window.connectFourConfig?.inviteRoomCode) {
+    modeSelectElement.value = "remote";
+    gameMode = "remote";
+    updateModeUI();
+    roomCodeInputElement.value = window.connectFourConfig.inviteRoomCode.toUpperCase();
+    void handleModeChange();
+} else {
+    updateModeUI();
+    startLocalGame();
+}

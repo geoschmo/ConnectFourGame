@@ -18,7 +18,7 @@
         <section class="hero-panel">
             <p class="eyebrow">Browser Game</p>
             <h1>Connect Four</h1>
-            <p class="subtitle">Drop discs, build a line of four, and play against a local friend or the computer.</p>
+            <p class="subtitle">Drop discs, build a line of four, and play against the computer, a local friend, or a remote opponent by invite link.</p>
 
             <div class="control-grid">
                 <label class="field">
@@ -26,10 +26,11 @@
                     <select id="mode-select">
                         <option value="cpu" selected>Player vs Computer</option>
                         <option value="local">Local 2 Players</option>
+                        <option value="remote">Remote 2 Players</option>
                     </select>
                 </label>
 
-                <label class="field">
+                <label class="field" id="difficulty-field">
                     <span>Difficulty</span>
                     <select id="difficulty-select">
                         <option value="easy">Easy</option>
@@ -39,29 +40,36 @@
                 </label>
             </div>
 
+            <section id="remote-panel" class="remote-card hidden" aria-label="online multiplayer controls">
+                <p class="remote-title">Online Match</p>
+
+                <div class="button-row remote-actions">
+                    <button id="create-room-btn" class="btn btn-secondary" type="button">Create Invite Link</button>
+                </div>
+
+                <label class="field">
+                    <span>Join with room code</span>
+                    <div class="join-row">
+                        <input id="room-code-input" type="text" maxlength="6" autocomplete="off" placeholder="Enter code" />
+                        <button id="join-room-btn" class="btn btn-primary" type="button">Join</button>
+                    </div>
+                </label>
+
+                <div id="invite-shell" class="invite-shell hidden">
+                    <p class="invite-label">Current room</p>
+                    <p id="room-code-display" class="room-code-display">------</p>
+                    <button id="copy-invite-btn" class="btn btn-secondary" type="button">Copy Invite Link</button>
+                </div>
+            </section>
+
             <div class="button-row">
                 <button id="new-game-btn" class="btn btn-primary">New Game</button>
-                <button id="reset-score-btn" class="btn btn-secondary">Reset Score</button>
+                <button id="leave-room-btn" class="btn btn-secondary hidden" type="button">Leave Room</button>
             </div>
 
             <div class="status-card">
                 <p id="status-text">Red starts. Pick a column.</p>
                 <p id="hint-text">Use the column buttons above the board to place a disc.</p>
-            </div>
-
-            <div class="scoreboard" aria-label="scoreboard">
-                <div class="score-pill red">
-                    <span>Red</span>
-                    <strong id="score-red">0</strong>
-                </div>
-                <div class="score-pill draw">
-                    <span>Draws</span>
-                    <strong id="score-draw">0</strong>
-                </div>
-                <div class="score-pill yellow">
-                    <span>Yellow</span>
-                    <strong id="score-yellow">0</strong>
-                </div>
             </div>
         </section>
 
@@ -84,9 +92,12 @@
 
     <script>
         window.connectFourConfig = {
-            selectedDifficulty: '@Model.SelectedDifficulty'
+            selectedDifficulty: '@Model.SelectedDifficulty',
+            inviteRoomCode: '@(Model.Room ?? "")',
+            gameHubUrl: '@Url.Content("~/gameHub")'
         };
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
     <script src="~/js/game.js" asp-append-version="true"></script>
 </body>
 </html>
