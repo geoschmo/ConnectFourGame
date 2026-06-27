@@ -1,6 +1,13 @@
 # ConnectFourGame
 
-ASP.NET Core 8 Razor Pages Connect Four game, intended to run at `https://georgeperley.com/connectfour`.
+ASP.NET Core 8 Razor Pages Connect Four game with local, CPU, and invite-link multiplayer modes.
+
+## Features
+
+- Player vs computer mode with three difficulty levels
+- Local two-player mode
+- Remote two-player rooms using SignalR
+- Responsive browser UI
 
 ## Local run
 
@@ -8,17 +15,9 @@ ASP.NET Core 8 Razor Pages Connect Four game, intended to run at `https://george
 dotnet run --project .\ConnectFourGame\ConnectFourGame.csproj
 ```
 
-## Deployment
+## Configuration
 
-GitHub Actions deploys this app to SmarterASP.NET on pushes to `master` using Web Deploy.
+Optional app settings:
 
-Repository variables:
-
-- `MSDEPLOY_SITE`: SmarterASP site name, such as `geoschmo-001-site2`
-- `MSDEPLOY_URL`: Web Deploy endpoint, such as `https://win8127.site4now.net:8172/msdeploy.axd?site=geoschmo-001-site2`
-- `MSDEPLOY_USER`: SmarterASP publish username
-- `MSDEPLOY_APP_PATH`: virtual app folder, set to `connectfour`
-
-Repository secret:
-
-- `MSDEPLOY_PASS`: SmarterASP publish password
+- `PathBase`: virtual application path when hosted under a subpath
+- `PortfolioUrl`: URL used by the back-to-portfolio link
