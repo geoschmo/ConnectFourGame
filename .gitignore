@@ -2,3 +2,7 @@
 .dotnet/
 **/bin/
 **/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
