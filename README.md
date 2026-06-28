@@ -2,6 +2,10 @@
 
 ASP.NET Core 8 Razor Pages Connect Four game with local, CPU, and invite-link multiplayer modes.
 
+## Play Online
+
+🎮 **Play ConnectFour:** [Launch the game](https://georgeperley.com/connectfour)
+
 ## Features
 
 - Player vs computer mode with three difficulty levels
